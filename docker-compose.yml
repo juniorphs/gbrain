@@ -1,0 +1,52 @@
+# Docker Compose configuration for Coolify
+services:
+  gbrain:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    ports:
+      - "3131:3131"
+    environment:
+      - PORT=3131
+      - GBRAIN_HOME=/data
+      - GBRAIN_HTTP_TRUST_PROXY=1
+      - PUBLIC_URL=${PUBLIC_URL:-}
+      - GBRAIN_ADMIN_BOOTSTRAP_TOKEN=${GBRAIN_ADMIN_BOOTSTRAP_TOKEN:-}
+      - DATABASE_URL=postgres://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres_password}@postgres:5432/${POSTGRES_DB:-gbrain}
+      - OPENAI_API_KEY=${OPENAI_API_KEY:-}
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}
+      - GEMINI_API_KEY=${GEMINI_API_KEY:-}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    volumes:
+      - gbrain_data:/data
+    networks:
+      - gbrain-net
+
+  postgres:
+    image: pgvector/pgvector:pg16
+    restart: unless-stopped
+    shm_size: 512m
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres_password}
+      POSTGRES_DB: ${POSTGRES_DB:-gbrain}
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres} -d ${POSTGRES_DB:-gbrain}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - gbrain-net
+
+volumes:
+  gbrain_data:
+  postgres_data:
+
+networks:
+  gbrain-net:
+    driver: bridge
